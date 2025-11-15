@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Job Status</title>
+
+  <!-- Tailwind (CDN for dev) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+  <div class="w-full max-w-3xl p-6 md:p-8 bg-slate-900/70 rounded-2xl shadow-lg border border-slate-700">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-semibold text-emerald-400">
+          Job Status
+        </h1>
+        <p class="text-sm text-slate-300">
+          View the status and output.
+        </p>
+      </div>
+      <a
+        href="index.html"
+        class="text-xs px-3 py-1.5 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-800 transition-colors"
+      >
+        ← New Job
+      </a>
+    </div>
+
+    <div class="space-y-4 bg-slate-900/80 border border-slate-700 rounded-xl p-4">
+      <!-- Job ID -->
+      <div>
+        <p class="text-sm text-slate-300">
+          Job ID:
+          <span id="job-id" class="font-mono text-sky-300"></span>
+        </p>
+      </div>
+
+      <!-- Status + refresh -->
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium text-slate-200">
+            Check the status:
+            <span id="status-value" class="font-mono text-emerald-300">—</span>
+          </p>
+          <p id="status-message" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+
+        <button
+          id="refresh-btn"
+          class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium
+                 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed
+                 transition-colors"
+        >
+          <span id="refresh-btn-text">Refresh Status</span>
+          <span id="refresh-btn-loading" class="hidden items-center gap-1">
+            <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 00-8 8h4z">
+              </path>
+            </svg>
+            Fetching...
+          </span>
+        </button>
+      </div>
+
+      <!-- Text output -->
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-slate-200 mb-2">Description</h2>
+        <p id="text-output" class="text-sm text-slate-100 whitespace-pre-wrap">
+          No output yet.
+        </p>
+      </div>
+
+      <!-- Video output -->
+<div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+  <h2 class="text-sm font-semibold text-slate-200 mb-2">Video Output</h2>
+  <div id="video-container" class="w-full space-y-2">
+    <p id="no-video" class="text-sm text-slate-400">
+      No video available yet.
+    </p>
+
+    <!-- Clickable YouTube link -->
+    <a
+      id="video-link"
+      href="#"
+      target="_blank"
+      class="hidden inline-flex items-center text-sm text-sky-400 hover:text-sky-300 underline"
+      rel="noopener noreferrer"
+    >
+      Open video on YouTube
+    </a>
+
+    <!-- Embedded YouTube player -->
+    <iframe
+      id="youtube-frame"
+      class="hidden w-full aspect-video rounded-lg border border-slate-700"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen
+    ></iframe>
+</div>
+</div>
+</div>
+</div>
+
+  <script>
+    // Change this to your backend URL if needed
+    // e.g. const API_BASE = 'http://localhost:8000';
+    const API_BASE = 'http://localhost:8000';
+
+    const jobIdSpan = document.getElementById('job-id');
+    const statusValue = document.getElementById('status-value');
+    const statusMessage = document.getElementById('status-message');
+    const textOutput = document.getElementById('text-output');
+    const videoLink = document.getElementById('video-link');
+    const youtubeFrame = document.getElementById('youtube-frame');
+    const noVideoText = document.getElementById('no-video');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const refreshBtnText = document.getElementById('refresh-btn-text');
+    const refreshBtnLoading = document.getElementById('refresh-btn-loading');
+
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get('job_id');
+
+    if (!jobId) {
+      jobIdSpan.textContent = '(missing)';
+      statusValue.textContent = 'error';
+      statusMessage.textContent = 'No job_id provided in the URL.';
+      refreshBtn.disabled = true;
+    } else {
+      jobIdSpan.textContent = jobId;
+      fetchStatus();
+    }
+
+    refreshBtn.addEventListener('click', () => {
+      fetchStatus();
+    });
+
+    async function fetchStatus() {
+      if (!jobId) return;
+      setLoading(true);
+      statusMessage.textContent = '';
+
+      try {
+        const url = API_BASE + '/api/jobs?job_id=' + encodeURIComponent(jobId);
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const data = await res.json();
+        // Possible shapes:
+        // { "status": "<status>" }
+        // { "status": "done", "text": "...", "video_url": "..." }
+
+        const status = data.status || 'unknown';
+        statusValue.textContent = status;
+
+        if (status === 'pending' || status === 'running') {
+          statusMessage.textContent = 'The job is still being processed. Try refreshing after some time.';
+          textOutput.textContent = 'No output yet.';
+          hideVideo();
+        } else if (status === 'done') {
+          statusMessage.textContent = 'The job completed successfully.';
+
+          if (data.text) {
+            textOutput.textContent = data.text;
+          } else {
+            textOutput.textContent = '(No text output returned.)';
+          }
+
+          if (data.video_url) {
+            showVideo(data.video_url);
+          } else {
+            hideVideo();
+          }
+        } else if (status === 'error') {
+          statusMessage.textContent = data.error || 'Job failed with an unknown error.';
+          textOutput.textContent = data.error || 'Job failed.';
+          hideVideo();
+        } else {
+          statusMessage.textContent = 'Unknown status.';
+          textOutput.textContent = 'No output.';
+          hideVideo();
+        }
+      } catch (err) {
+        console.error(err);
+        statusValue.textContent = 'error';
+        statusMessage.textContent = 'Error fetching job status.';
+        textOutput.textContent = 'Error fetching job status.';
+        hideVideo();
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function showVideo(url) {
+        // Show clickable link
+        videoLink.href = url;
+        videoLink.textContent = url; // or "Open video on YouTube"
+        videoLink.classList.remove('hidden');
+
+        // Derive embed URL from YouTube watch URL, if possible
+        const embedUrl = toYouTubeEmbedUrl(url);
+        if (embedUrl) {
+            youtubeFrame.src = embedUrl;
+            youtubeFrame.classList.remove('hidden');
+        } else {
+            // If it's not a YouTube URL, hide iframe but still show link
+            youtubeFrame.src = '';
+            youtubeFrame.classList.add('hidden');
+        }
+
+        // Hide "no video" placeholder
+        noVideoText.classList.add('hidden');
+    }
+
+    function hideVideo() {
+        // Hide both link and iframe
+        videoLink.href = '#';
+        videoLink.textContent = '';
+        videoLink.classList.add('hidden');
+
+        youtubeFrame.src = '';
+        youtubeFrame.classList.add('hidden');
+
+        // Show placeholder text
+        noVideoText.textContent = 'No video available yet.';
+        noVideoText.classList.remove('hidden');
+    }
+
+    // Utility: convert watch URL → embed URL
+    function toYouTubeEmbedUrl(url) {
+        try {
+            const u = new URL(url);
+            // Handles https://www.youtube.com/watch?v=VIDEO_ID
+            if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+            const id = u.searchParams.get('v');
+            return `https://www.youtube.com/embed/${id}`;
+            }
+            // Handles https://youtu.be/VIDEO_ID
+            if (u.hostname === 'youtu.be') {
+            const id = u.pathname.replace('/', '');
+            return `https://www.youtube.com/embed/${id}`;
+            }
+        } catch (e) {
+            console.warn('Invalid video URL', e);
+        }
+        return null;
+    }
+
+    function setLoading(isLoading) {
+      refreshBtn.disabled = isLoading;
+      if (isLoading) {
+        refreshBtnText.classList.add('hidden');
+        refreshBtnLoading.classList.remove('hidden');
+        refreshBtnLoading.classList.add('inline-flex');
+      } else {
+        refreshBtnText.classList.remove('hidden');
+        refreshBtnLoading.classList.add('hidden');
+        refreshBtnLoading.classList.remove('inline-flex');
+      }
+    }
+  </script>
+</body>
+</html>

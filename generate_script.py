@@ -66,7 +66,6 @@ def parse_output(raw_output):
 
             for con_text in connection_text_raw.split(";"):
                 conn_text_parsed = con_text.split(":")
-                print("conn text", conn_text_parsed[0].split(','))
                 start_nodes = tuple([int(el) for el in conn_text_parsed[0].split(',')])
                 end_node = int(conn_text_parsed[1])
                 connections.append((start_nodes, end_node))
@@ -92,8 +91,8 @@ def generate_script(job):
         """
 
     prompt = job['prompt']
-    file_path = job['file_path']
-    file_type = job['file_type']
+    # file_path = job['file_path']
+    # file_type = job['file_type']
 
     raw_output = get_raw_output(prompt)
     parsed_output = parse_output(raw_output)
