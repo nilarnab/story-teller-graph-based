@@ -5,6 +5,7 @@ from datetime import datetime
 from bson import ObjectId
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from pymongo import ReturnDocument
 
 load_dotenv()
 
@@ -70,3 +71,38 @@ def serialize_job(job_doc: dict) -> dict:
         "video_url": job_doc.get("video_url"),
         "error": job_doc.get("error"),
     }
+
+def get_next_pending_job() -> dict | None:
+    """
+    Atomically find ONE pending job, mark it as 'running', and return it.
+    Returns the job document or None if nothing is pending.
+    """
+    job_doc = jobs_col.find_one_and_update(
+        {"status": "pending"},
+        {"$set": {"status": "running"}},
+        sort=[("created_at", 1)],  # oldest first
+        return_document=ReturnDocument.AFTER,
+    )
+    return job_doc
+
+
+def update_job_result(job_id: str, description: str | None, video_url: str | None, subheadings: list[dict]) -> dict | None:
+    """
+    Returns updated document or None if not found.
+    """
+    oid = _to_object_id(job_id)
+    result = jobs_col.update_one(
+        {"_id": oid},
+        {
+            "$set": {
+                "status": "done",
+                "description": description,
+                "video_url": video_url,
+                "subheadings": subheadings,
+                "error": None,
+            }
+        },
+    )
+    if result.matched_count == 0:
+        return None
+    return jobs_col.find_one({"_id": oid})
