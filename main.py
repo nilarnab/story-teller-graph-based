@@ -1,4 +1,5 @@
 import time
+from generate_script import generate_script
 
 FETCH_INTERVAL_SECONDS = 60
 
@@ -41,7 +42,15 @@ def engage_workers(job):
     :param job:
     :return:
     """
+    frames = generate_script({"prompt": "some prompt"})
+
+
     pass
+
+
+def generate_audio(text):
+    pass
+
 
 def main():
     while True:
