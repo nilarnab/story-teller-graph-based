@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en" x-data="jobApp()">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Job Runner</title>
+
+  <!-- Tailwind (CDN for dev; you can optimize later) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+  <div class="w-full max-w-3xl p-6 md:p-8 bg-slate-900/70 rounded-2xl shadow-lg border border-slate-700">
+    <h1 class="text-2xl md:text-3xl font-semibold mb-2 text-sky-400">
+      Prompt → Video Job Runner
+    </h1>
+    <p class="text-sm text-slate-300 mb-6">
+      Submit a job with a prompt & document, then fetch the generated text & video using the Job ID.
+    </p>
+
+    <!-- Step 1: Create Job -->
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3 text-slate-100 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center bg-sky-500 text-xs rounded-full">1</span>
+        Create Job
+      </h2>
+
+      <form @submit.prevent="submitJob" class="space-y-4 bg-slate-900/80 border border-slate-700 rounded-xl p-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-200 mb-1">
+            Prompt
+          </label>
+          <textarea
+            x-model="prompt"
+            rows="3"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950/70 text-slate-100 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+            placeholder="Describe what you want the backend to generate..."
+            required
+          ></textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-200 mb-1">
+            Document (optional)
+          </label>
+          <input
+            type="file"
+            @change="documentFile = $event.target.files[0]"
+            class="block w-full text-sm text-slate-200
+                   file:mr-4 file:py-2 file:px-4
+                   file:rounded-lg file:border-0
+                   file:text-sm file:font-semibold
+                   file:bg-sky-600 file:text-white
+                   hover:file:bg-sky-500"
+          />
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="submit"
+            class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium
+                   bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 disabled:cursor-not-allowed
+                   transition-colors"
+            :disabled="isSubmitting"
+          >
+            <span x-show="!isSubmitting">Submit Job</span>
+            <span x-show="isSubmitting" class="inline-flex items-center gap-2">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 00-8 8h4z">
+                </path>
+              </svg>
+              Submitting...
+            </span>
+          </button>
+
+          <p class="text-xs text-slate-400" x-text="submitStatus"></p>
+        </div>
+
+        <template x-if="jobId">
+          <div class="mt-2 px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-700 text-sm">
+            <span class="font-semibold text-sky-300">Job ID:</span>
+            <span x-text="jobId" class="ml-1 font-mono"></span>
+          </div>
+        </template>
+      </form>
+    </section>
+
+    <!-- Step 2: Fetch Result -->
+    <section>
+      <h2 class="text-lg font-semibold mb-3 text-slate-100 flex items-center gap-2">
+        <span class="inline-flex h-6 w-6 items-center justify-center bg-emerald-500 text-xs rounded-full">2</span>
+        Fetch Result
+      </h2>
+
+      <form @submit.prevent="fetchResult" class="space-y-4 bg-slate-900/80 border border-slate-700 rounded-xl p-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-200 mb-1">
+            Job ID
+          </label>
+          <input
+            type="text"
+            x-model="jobIdInput"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950/70 text-slate-100 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            placeholder="Paste or auto-filled from above"
+            required
+          />
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="submit"
+            class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium
+                   bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed
+                   transition-colors"
+            :disabled="isFetching"
+          >
+            <span x-show="!isFetching">Get Result</span>
+            <span x-show="isFetching" class="inline-flex items-center gap-2">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 00-8 8h4z">
+                </path>
+              </svg>
+              Fetching...
+            </span>
+          </button>
+
+          <p class="text-xs text-slate-400" x-text="fetchStatus"></p>
+        </div>
+      </form>
+
+      <!-- Output area -->
+      <div class="mt-4 space-y-3">
+        <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-4">
+          <h3 class="text-sm font-semibold text-slate-200 mb-2">Text Output</h3>
+          <p class="text-sm text-slate-100 whitespace-pre-wrap" x-text="resultText || 'No output yet.'"></p>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-700 rounded-xl p-4">
+          <h3 class="text-sm font-semibold text-slate-200 mb-2">Video Output</h3>
+          <template x-if="resultVideoUrl">
+            <video
+              class="w-full max-h-80 rounded-lg border border-slate-700"
+              controls
+              :src="resultVideoUrl"
+            >
+              Your browser does not support the video tag.
+            </video>
+          </template>
+          <p x-show="!resultVideoUrl" class="text-sm text-slate-400">
+            No video available yet.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    function jobApp() {
+      // TODO: set this to your backend URL.
+      // If your backend runs on localhost:8000, use:
+      //   const API_BASE = 'http://localhost:8000';
+      const API_BASE = 'http://localhost:8000';
+
+      return {
+        // state
+        prompt: '',
+        documentFile: null,
+        jobId: '',
+        jobIdInput: '',
+        submitStatus: '',
+        fetchStatus: '',
+        resultText: '',
+        resultVideoUrl: '',
+        isSubmitting: false,
+        isFetching: false,
+
+        async submitJob() {
+          this.isSubmitting = true;
+          this.submitStatus = 'Submitting job...';
+
+          try {
+            const formData = new FormData();
+            formData.append('prompt', this.prompt);
+            if (this.documentFile) {
+              formData.append('document', this.documentFile);
+            }
+
+            const res = await fetch(API_BASE + '/api/jobs', {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json(); // { job_id: ... }
+
+            this.jobId = data.job_id;
+            this.jobIdInput = data.job_id;
+            this.submitStatus = 'Job submitted successfully.';
+          } catch (err) {
+            console.error(err);
+            this.submitStatus = 'Error submitting job.';
+          } finally {
+            this.isSubmitting = false;
+          }
+        },
+
+        async fetchResult() {
+          if (!this.jobIdInput) return;
+          this.isFetching = true;
+          this.fetchStatus = 'Fetching result...';
+
+          try {
+            const res = await fetch(API_BASE + '/api/jobs/' + encodeURIComponent(this.jobIdInput));
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            const data = await res.json();
+            // expected: { status: 'pending'|'running'|'done'|'error', text?, video_url?, error? }
+
+            if (data.status === 'pending' || data.status === 'running') {
+              this.fetchStatus = `Status: ${data.status}. Try again later.`;
+              return;
+            }
+
+            if (data.status === 'error') {
+              this.fetchStatus = 'Job failed: ' + (data.error || 'Unknown error');
+              return;
+            }
+
+            this.fetchStatus = 'Job completed ✅';
+            this.resultText = data.text || '';
+            this.resultVideoUrl = data.video_url || '';
+          } catch (err) {
+            console.error(err);
+            this.fetchStatus = 'Error fetching result.';
+          } finally {
+            this.isFetching = false;
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>
