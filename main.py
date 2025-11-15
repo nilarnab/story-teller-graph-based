@@ -60,10 +60,10 @@ def _get_predefined_position(index):
     angle = (2 * math.pi * position_in_layer) / nodes_in_current_layer
     
     # Calculate radius based on layer (each layer gets progressively larger)
-    # Layer 1: radius 0.18, Layer 2: radius 0.32, etc.
-    # Keep radius small enough to fit in [0, 1] bounds
-    radius = 0.15 + (layer - 1) * 0.12
-    radius = min(radius, 0.35)  # Cap at 0.35 to stay within bounds
+    # Increased spacing: Layer 1: radius 0.20, Layer 2: radius 0.35, etc.
+    # More spacing to prevent node overlap
+    radius = 0.20 + (layer - 1) * 0.15
+    radius = min(radius, 0.42)  # Cap at 0.42 to stay within bounds with margin
     
     # Calculate position using polar coordinates
     x = 0.5 + radius * math.cos(angle)
@@ -96,7 +96,7 @@ def reset_frame_state():
     })
 
 
-def generate_frame(nodes, connections, duration, preserve_last=False, frame_text=None):
+def generate_frame(nodes, connections, duration, preserve_last=False, frame_text=None, visible_nodes=None):
     """
     Generate a video frame showing a directed graph with specified nodes and connections.
     
@@ -110,6 +110,7 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     :param preserve_last: If True, preserve node positions from previous frame and show 
                          disappeared nodes as ghost nodes (faded/transparent)
     :param frame_text: Optional text to display at the top of the frame
+    :param visible_nodes: Set of node indices that should be visible. If None, all nodes are visible.
     :return: moviepy.ImageClip object
     """
     global _last_frame_state
@@ -117,12 +118,17 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     # Create a directed graph for current nodes
     G = nx.DiGraph()
     
+    # If visible_nodes not specified, show all nodes
+    if visible_nodes is None:
+        visible_nodes = set(range(len(nodes)))
+    
     # Add nodes with their labels
     current_node_indices = set()
-    print("getting nodes in generate frame", nodes, connections)
+    print("getting nodes in generate frame", nodes, connections, "visible:", visible_nodes)
     for i, (shape, color, text) in enumerate(nodes):
-        G.add_node(i, shape=shape, color=color, text=text)
-        current_node_indices.add(i)
+        if i in visible_nodes:  # Only add visible nodes
+            G.add_node(i, shape=shape, color=color, text=text)
+            current_node_indices.add(i)
     
     # Add edges based on connections
     for source_nodes, target_node in connections:
@@ -308,14 +314,17 @@ def generate_frames(frames, preserve_continuity=True):
 
         print("in generate frames", i, frame_data)
         text, nodes, connections = frame_data['text'], frame_data['nodes'], frame_data['connections']
-        # nodes = [tuple(el) for el in nodes]
-        duration = 5 # hardcoded
-        print("i", i, nodes, connections, duration)
+        # Use duration from frame_data if provided, otherwise default to 5 seconds
+        duration = frame_data.get('duration', 5)
+        # Get visible nodes if specified
+        visible_nodes = frame_data.get('visible_nodes', None)
+        print("i", i, nodes, connections, duration, "visible:", visible_nodes)
 
         # First frame doesn't preserve (nothing to preserve from)
         # Subsequent frames preserve if preserve_continuity is enabled
         preserve_flag = preserve_continuity and i > 0
-        clip = generate_frame(nodes, connections, duration, preserve_last=preserve_flag, frame_text=text)
+        clip = generate_frame(nodes, connections, duration, preserve_last=preserve_flag, 
+                             frame_text=text, visible_nodes=visible_nodes)
         clips.append(clip)
     
     # Concatenate all clips
@@ -325,8 +334,8 @@ def generate_frames(frames, preserve_continuity=True):
 
 def generate_animated_frame_sequence(nodes, connections, frame_text=None, duration_per_step=1.0):
     """
-    Generate a sequence of frames where connections appear one by one.
-    Each step shows one more connection than the previous.
+    Generate a sequence of frames where nodes and connections appear one by one.
+    Nodes appear sequentially first, then the connection appears.
     
     :param nodes: List of node tuples [(shape, color, text), ...]
     :param connections: List of connection tuples [((source,), target), ...]
@@ -335,15 +344,45 @@ def generate_animated_frame_sequence(nodes, connections, frame_text=None, durati
     :return: List of frame specifications for generate_frames()
     """
     if not connections:
-        # No connections, just show all nodes
-        return [(nodes, [], duration_per_step, frame_text)]
+        # No connections, show nodes appearing one by one
+        frame_sequence = []
+        for i in range(len(nodes)):
+            visible_nodes = set(range(i + 1))
+            frame_sequence.append((nodes, [], duration_per_step, frame_text, visible_nodes))
+        return frame_sequence
     
     frame_sequence = []
     
-    # Build up connections progressively
+    # Track which nodes have been revealed
+    visible_nodes = set()
+    
+    # Build up connections progressively, revealing nodes as they're connected
     for i in range(len(connections)):
+        conn = connections[i]
+        source_nodes, target_node = conn
+        
+        # Collect all nodes involved in this connection
+        new_nodes = set()
+        if isinstance(source_nodes, (list, tuple)):
+            new_nodes.update(source_nodes)
+        else:
+            new_nodes.add(source_nodes)
+        new_nodes.add(target_node)
+        
+        # Find nodes that haven't been shown yet
+        nodes_to_reveal = new_nodes - visible_nodes
+        
+        # Show each new node appearing one at a time (without connection yet)
+        for node_idx in sorted(nodes_to_reveal):
+            visible_nodes.add(node_idx)
+            # Show node without the new connection
+            frame_sequence.append((nodes, connections[:i], duration_per_step, frame_text, visible_nodes.copy()))
+        
+        # Now show the connection (all nodes already visible)
         current_connections = connections[:i+1]
-        frame_sequence.append((nodes, current_connections, duration_per_step, frame_text))
+        frame_sequence.append((nodes, current_connections, duration_per_step, frame_text, visible_nodes.copy()))
+    
+    return frame_sequence
     
     return frame_sequence
 
@@ -371,8 +410,19 @@ def generate_video_from_story(story_frames, duration_per_step=1.0, preserve_cont
         )
         all_frames.extend(animated_sequence)
     
-    # Generate the complete video
-    return generate_frames(story_frames, preserve_continuity=preserve_continuity)
+    # Convert all_frames to the dict format expected by generate_frames
+    formatted_frames = []
+    for nodes, connections, duration, frame_text, visible_nodes in all_frames:
+        formatted_frames.append({
+            'text': frame_text,
+            'nodes': nodes,
+            'connections': connections,
+            'duration': duration,
+            'visible_nodes': visible_nodes
+        })
+    
+    # Generate the complete video with formatted frames
+    return generate_frames(formatted_frames, preserve_continuity=preserve_continuity)
 
 
 def engage_workers(job):
