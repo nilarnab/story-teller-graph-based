@@ -16,45 +16,61 @@ _last_frame_state = {
 }
 
 # Predefined positions for nodes (circular layout around center)
-def _get_predefined_position(index, total_nodes_hint=10):
+def _get_predefined_position(index):
     """
     Get a predefined position for a node based on its index.
-    Positions are arranged in a circular pattern starting from center.
+    Positions are arranged in concentric circular layers starting from center.
     
-    :param index: Node index
-    :param total_nodes_hint: Hint for spacing (not strict limit)
-    :return: (x, y) position tuple
+    - Node 0: Center (0.5, 0.5)
+    - Nodes 1-6: First layer (6 nodes in circle around center)
+    - Nodes 7-12: Second layer (6 nodes in circle farther out)
+    - And so on...
+    
+    All positions are guaranteed to be within bounds (0, 1).
+    Positions are deterministic based on node index only.
+    
+    :param index: Node index (0 is center, 1+ are in layers)
+    :return: (x, y) position tuple with values in [0, 1]
     """
+    import math
+    
     if index == 0:
         # First node at center
         return (0.5, 0.5)
     
-    # Arrange subsequent nodes in circular layers
+    # Determine which layer this node belongs to
+    # Layer 1 has nodes 1-6 (6 nodes)
+    # Layer 2 has nodes 7-18 (12 nodes)
+    # Layer k has nodes with 6*k positions
     layer = 1
-    nodes_in_layer = 6  # First layer has 6 nodes
-    cumulative_nodes = 1  # Start after center node
+    nodes_before_layer = 1  # Node 0 is at center
+    nodes_in_current_layer = 6
     
-    while cumulative_nodes + nodes_in_layer <= index + 1:
-        cumulative_nodes += nodes_in_layer
+    # Find which layer the node is in
+    while nodes_before_layer + nodes_in_current_layer <= index:
+        nodes_before_layer += nodes_in_current_layer
         layer += 1
-        nodes_in_layer = 6 * layer  # Each layer has more nodes
+        nodes_in_current_layer = 6 * layer
     
-    # Position within current layer
-    position_in_layer = index - cumulative_nodes + 1
-    angle = (2 * 3.14159 * position_in_layer) / nodes_in_layer
-    radius = 0.15 * layer  # Distance from center increases with layer
+    # Position within the current layer (0-indexed)
+    position_in_layer = index - nodes_before_layer
     
-    x = 0.5 + radius * (1.5 if index % 2 == 0 else 1.0) * (0.5 if layer == 1 else 1.0) * (1.0 + 0.1 * (index % 3)) * 0.8
-    y = 0.5 + radius * (1.5 if index % 2 == 1 else 1.0) * (0.5 if layer == 1 else 1.0) * (1.0 + 0.1 * ((index + 1) % 3)) * 0.8
+    # Calculate angle for this position in the layer
+    angle = (2 * math.pi * position_in_layer) / nodes_in_current_layer
     
-    # Simple circular layout
-    x = 0.5 + radius * 2.5 * (1 - 2 * (index % 2) * 0.1) * (0.7 + 0.3 * (index % 2))
-    y = 0.5 + radius * 2.5 * (1 - 2 * ((index + 1) % 2) * 0.1) * (0.7 + 0.3 * ((index + 1) % 2))
+    # Calculate radius based on layer (each layer gets progressively larger)
+    # Layer 1: radius 0.18, Layer 2: radius 0.32, etc.
+    # Keep radius small enough to fit in [0, 1] bounds
+    radius = 0.15 + (layer - 1) * 0.12
+    radius = min(radius, 0.35)  # Cap at 0.35 to stay within bounds
     
-    # Better circular arrangement
-    import math
-    x = 0.5 + radius * 2.0 * math.cos(angle)
-    y = 0.5 + radius * 2.0 * math.sin(angle)
+    # Calculate position using polar coordinates
+    x = 0.5 + radius * math.cos(angle)
+    y = 0.5 + radius * math.sin(angle)
+    
+    # Ensure position is within bounds [0, 1]
+    x = max(0.05, min(0.95, x))
+    y = max(0.05, min(0.95, y))
     
     return (x, y)
 
@@ -68,12 +84,15 @@ def reset_frame_state():
     Reset the global frame state. Call this when starting a new video sequence.
     """
     global _last_frame_state
-    _last_frame_state = {
+    # IMPORTANT: Clear the existing dict instead of reassigning!
+    # This ensures all imports continue to reference the same object
+    _last_frame_state.clear()
+    _last_frame_state.update({
         'positions': None,
         'nodes': None,
         'graph': None,
         'next_position_index': 0
-    }
+    })
 
 
 def generate_frame(nodes, connections, duration, preserve_last=False):
