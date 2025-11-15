@@ -388,7 +388,7 @@ def engage_workers(job):
     :param job:
     :return:
     """
-    frames = generate_script({"prompt": "some prompt"})
+    frames = generate_script({"prompt": "Explain how the dijkstras algorithm works in detail."})
     print("all frames", frames)
     generated_clip = generate_video_from_story(frames)
     print("cliup is generated")
