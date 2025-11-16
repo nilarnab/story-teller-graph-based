@@ -36,7 +36,7 @@ _last_frame_state = {
 
 def generate_background_music(prompt):
 #      lets use a pregenreated one for now
-    audio_background_clip = AudioFileClip("75985_Study_Flow_2025-11-16T035030.mp3")
+    audio_background_clip = AudioFileClip("background_reduced_vol.mp3")
     return audio_background_clip
 
 
@@ -560,6 +560,15 @@ def generate_video_from_story(story_frames, duration_per_step=1.0, preserve_cont
     return generate_frames(formatted_frames, preserve_continuity=preserve_continuity)
 
 
+def generate_clip(job):
+    frames = generate_script(job)
+    print("all frames", len(frames), frames)
+    generated_clip = generate_video_from_story(frames)
+    print("cliup is generated")
+
+    return generated_clip
+
+
 def engage_workers(job):
     """
     job structure expected
@@ -573,10 +582,18 @@ def engage_workers(job):
     :param job:
     :return:
     """
-    frames = generate_script(job)
-    print("all frames", len(frames), frames)
-    generated_clip = generate_video_from_story(frames)
-    print("cliup is generated")
+    print("generate requewst is recived", job)
+    retry = 6
+    generated_clip = None
+    while retry:
+        try:
+            generated_clip = generate_clip(job)
+            break
+        except:
+            print("OH NO, somethign did nott work, retry left", retry)
+            retry -= 1
+
+
 
     file_path = "testvideo.mp4"
     generated_clip.write_videofile(file_path, fps=20, audio_codec='aac')

@@ -6,6 +6,8 @@ from typing import Tuple, List, Dict
 from backend.db import get_next_pending_job, update_job_result, serialize_job
 from main import main
 
+from backend.generate_subheading import generate_prompt_subheading
+
 def generate_video_from_job(prompt_text: str, file_path: str | None) -> Tuple[str, str, List[Dict]]:
     """
     This is a placeholder; replace with actual integration
@@ -58,6 +60,21 @@ def process_one_job():
     return True
 
 
+def process_one_agent_job():
+    job = get_next_pending_job("AGENT")
+    print("agent job", job)
+
+    if job is not None:
+        base_prompt_text = job.get("prompt_text")
+        print("base prmopt", base_prompt_text)
+        prompt_text = generate_prompt_subheading(base_prompt_text)
+        print("got new prompt text", prompt_text)
+        description, video_url, subheadings = main(prompt_text, None)
+
+        ## upload sequence
+        print("upalod to youtube", video_url)
+
+
 def run_worker_loop(poll_interval: int = 5):
     """
     Every poll_interval seconds:
@@ -68,6 +85,7 @@ def run_worker_loop(poll_interval: int = 5):
     print("Worker started. Polling for new jobs...")
     while True:
         success = process_one_job()
+        process_one_agent_job()
         if not success:
             # No job; sleep and poll again
             time.sleep(poll_interval)
