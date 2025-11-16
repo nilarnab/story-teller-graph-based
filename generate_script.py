@@ -32,8 +32,8 @@ def get_raw_output(prompt):
                            "a full output might look something like:" \
                            "frame1?frametext1?NO_NODE?NO_NODE$frame2?frametext2?shape1:color1:label1,shape2:color2:label2,shape3:color3:label3?0,1:2;2:1"
     response = client.chat.completions.create(
-        model="openai/gpt-5.1",
-        # model="openai/gpt-oss-20b:free",
+        # model="openai/gpt-5.1",
+        model="openai/gpt-oss-20b:free",
         messages=[
             {
                 "role": "user",
