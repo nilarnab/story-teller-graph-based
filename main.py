@@ -383,8 +383,6 @@ def generate_animated_frame_sequence(nodes, connections, frame_text=None, durati
         frame_sequence.append((nodes, current_connections, duration_per_step, frame_text, visible_nodes.copy()))
     
     return frame_sequence
-    
-    return frame_sequence
 
 
 def generate_video_from_story(story_frames, duration_per_step=1.0, preserve_continuity=True):
@@ -438,7 +436,7 @@ def engage_workers(job):
     :param job:
     :return:
     """
-    frames = generate_script({"prompt": "Explain how the dijkstras algorithm works in detail."})
+    frames = generate_script({"prompt": "Explain how the supply chain works."})
     print("all frames", frames)
     generated_clip = generate_video_from_story(frames)
     print("cliup is generated")
