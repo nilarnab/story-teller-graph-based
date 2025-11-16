@@ -10,7 +10,7 @@ from pymongo import ReturnDocument
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "prompt_video_app")
+MONGO_DB_NAME = "hack_nyu"
 
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
@@ -29,7 +29,7 @@ def create_job(prompt_text: str, file_path: str | None, file_name: str | None) -
         "prompt_text": prompt_text,
         "file_path": file_path,
         "file_name": file_name,
-        "status": "pending",      
+        "status": "pending",
         "description": None,
         "video_url": None,
         "error": None,
@@ -42,6 +42,10 @@ def create_job(prompt_text: str, file_path: str | None, file_name: str | None) -
 def get_job(job_id: str) -> dict | None:
     oid = _to_object_id(job_id)
     return jobs_col.find_one({"_id": oid})
+
+def get_all_new_jobs():
+    return jobs_col.find_one({"status": "pending"})
+
 
 def mark_job_done(job_id: str, description: str, video_url: str) -> dict | None:
     oid = _to_object_id(job_id)

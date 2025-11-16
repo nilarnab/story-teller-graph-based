@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from elevenlabs.client import ElevenLabs
 from elevenlabs.play import play
 from moviepy import AudioFileClip
+from backend  import db
 
 
 FETCH_INTERVAL_SECONDS = 60
@@ -119,7 +120,8 @@ def _get_predefined_position(index):
 
 
 def get_jobs():
-    return {}
+    jobs = db.get_all_new_jobs()
+    return jobs
 
 
 def reset_frame_state():
@@ -525,27 +527,42 @@ def engage_workers(job):
     :param job:
     :return:
     """
-    frames = generate_script({"prompt": "Explain how the supply chain works."})
+    frames = generate_script(job)
     print("all frames", len(frames), frames)
     generated_clip = generate_video_from_story(frames)
     print("cliup is generated")
 
-    generated_clip.write_videofile("testvideo.mp4", fps=20, audio_codec='aac')
+    file_path = "testvideo.mp4"
+    generated_clip.write_videofile(file_path, fps=20, audio_codec='aac')
     print("file saved")
+    abs_file_path = os.path.abspath(file_path)
 
-    pass
+    return abs_file_path
 
 
 def generate_audio(text):
     pass
 
 
+def main(prompt, file_path):
+    job = {"prompt": prompt, "file_path": file_path}
+    print("main got job", job)
+    file_path = engage_workers(job)
+    print("main giving file path", file_path)
+    return "dummy descrption", file_path, "dumm subheading"
+
+
 # def main():
 #     while True:
 #         jobs = get_jobs()
+#         print("jobs", jobs)
+#         prompt = jobs['prompt_text']
+#         filepath = jobs['file_path']
+#
 #         for job in jobs:
 #             engage_workers(job)
 #
 #         time.sleep(FETCH_INTERVAL_SECONDS)
 
-engage_workers({})
+# engage_workers({})
+# main()

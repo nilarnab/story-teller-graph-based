@@ -4,7 +4,7 @@ import time
 from typing import Tuple, List, Dict
 
 from backend.db import get_next_pending_job, update_job_result, serialize_job
-
+from main import main
 
 def generate_video_from_job(prompt_text: str, file_path: str | None) -> Tuple[str, str, List[Dict]]:
     """
@@ -47,7 +47,8 @@ def process_one_job():
     print(f"File path  : {file_path}")
 
     # TODO Call video generation logic here
-    description, video_url, subheadings = generate_video_from_job(prompt_text, file_path)
+    # description, video_url, subheadings = generate_video_from_job(prompt_text, file_path)
+    description, video_url, subheadings = main(prompt_text, file_path)
 
     # Update the document in Mongo
     updated_doc = update_job_result(job_id, description, video_url, subheadings)
