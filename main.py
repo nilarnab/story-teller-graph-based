@@ -318,13 +318,19 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     nx.draw_networkx_edges(
         G, pos,
         edge_color='black',
-        arrows=True,
-        arrowsize=100,
-        arrowstyle='-|>',
+        arrows=False,
         width=3,
-        connectionstyle='arc3,rad=0.1',
         ax=ax
     )
+    
+    # Draw arrow heads at the midpoint of each edge
+    for u, v in G.edges():
+        x1, y1 = pos[u]
+        x2, y2 = pos[v]
+        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+        dx, dy = x2 - x1, y2 - y1
+        # Draw arrow head at midpoint
+        ax.arrow(mx, my, dx * 0.001, dy * 0.001, head_width=0.02, head_length=0.02, fc='black', ec='black')
     
     # Draw labels for current nodes with better sizing
     labels = {i: node_data[2] for i, node_data in enumerate(nodes) if i in G.nodes()}
