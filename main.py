@@ -14,6 +14,7 @@ from elevenlabs.client import ElevenLabs
 from elevenlabs.play import play
 from moviepy import AudioFileClip
 from backend  import db
+from moviepy import CompositeAudioClip
 
 
 FETCH_INTERVAL_SECONDS = 60
@@ -35,7 +36,7 @@ _last_frame_state = {
 
 def generate_background_music(prompt):
 #      lets use a pregenreated one for now
-    audio_background_clip = AudioFileClip("Study_Flow_2025-11-16T035030.mp3")
+    audio_background_clip = AudioFileClip("75985_Study_Flow_2025-11-16T035030.mp3")
     return audio_background_clip
 
 
@@ -432,11 +433,20 @@ def generate_frames(frames, preserve_continuity=True):
 
     print("lenght fo frames", len(clips))
 
-
     # Concatenate all clips
-    background_music = generate_background_music("fast beat music, something good for study, lofi")
     final_clip = concatenate_videoclips(clips, method="compose")
-    # final_clip = final_clip.with_audio(background_music)
+    background_music = generate_background_music("fast beat music, something good for study, lofi")
+
+    video_duration = final_clip.duration
+    background_music = background_music.subclipped(0, video_duration)
+
+    # Optionally, lower the background music volume
+    # background_music = background_music.volumex(0.3)  # 30% volume
+    # Combine original audio and background music
+    combined_audio = CompositeAudioClip([final_clip.audio, background_music.with_duration(final_clip.duration)])
+
+    # Assign combined audio back to final_clip
+    final_clip = final_clip.with_audio(combined_audio)
 
     return final_clip
 
