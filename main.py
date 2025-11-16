@@ -1,4 +1,6 @@
 import time
+from collections import defaultdict
+
 from generate_script import generate_script
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -6,7 +8,19 @@ from moviepy import ImageClip, concatenate_videoclips
 import os
 import tempfile
 
+from dotenv import load_dotenv
+from elevenlabs.client import ElevenLabs
+from elevenlabs.play import play
+from moviepy import AudioFileClip
+
+
 FETCH_INTERVAL_SECONDS = 60
+
+load_dotenv()
+
+elevenlabs = ElevenLabs(
+  api_key=os.getenv("ELEVEN_LABS_KEY"),
+)
 
 # Global state to preserve layout and previous frame information
 _last_frame_state = {
@@ -15,6 +29,34 @@ _last_frame_state = {
     'graph': None,
     'next_position_index': 0  # Track position for new nodes
 }
+
+
+def generate_background_music(prompt):
+#      lets use a pregenreated one for now
+    audio_background_clip = AudioFileClip("Study_Flow_2025-11-16T035030.mp3")
+    return audio_background_clip
+
+
+def get_audio(text):
+    audio_stream = elevenlabs.text_to_speech.convert(
+        text=text,
+        voice_id="JBFqnCBsd6RMkjVDRZzb",
+        model_id="eleven_multilingual_v2",
+        output_format="mp3_44100_128",
+    )
+
+    temp_dir = tempfile.gettempdir()
+    audio_path = f"tts_{int(time.time() * 1000)}.mp3"
+
+    # IMPORTANT: iterate through the stream, do NOT do f.write(audio_stream)
+    with open(audio_path, "wb") as f:
+        for chunk in audio_stream:
+            f.write(chunk)
+
+    # Now load as MoviePy AudioFileClip
+    audio_clip = AudioFileClip(audio_path)
+
+    return audio_clip
 
 # Predefined positions for nodes (circular layout around center)
 def _get_predefined_position(index):
@@ -114,7 +156,7 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     :return: moviepy.ImageClip object
     """
     global _last_frame_state
-    print("trying to generate one frame")
+    # print("trying to generate one frame")
     # Create a directed graph for current nodes
     G = nx.DiGraph()
     
@@ -124,7 +166,7 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     
     # Add nodes with their labels
     current_node_indices = set()
-    print("getting nodes in generate frame", nodes, connections, "visible:", visible_nodes)
+    # print("getting nodes in generate frame", nodes, connections, "visible:", visible_nodes)
     for i, (shape, color, text) in enumerate(nodes):
         if i in visible_nodes:  # Only add visible nodes
             G.add_node(i, shape=shape, color=color, text=text)
@@ -309,26 +351,66 @@ def generate_frames(frames, preserve_continuity=True):
         reset_frame_state()
     
     clips = []
-    print("in get  generate frames", frames)
+
+    print("lenght fo frames", len(frames))
+    # print("in get  generate frames", frames)
+    clip_groups = defaultdict(list)
+
     for i, frame_data in enumerate(frames):
 
-        print("in generate frames", i, frame_data)
-        text, nodes, connections = frame_data['text'], frame_data['nodes'], frame_data['connections']
+        # print("in generate frames", i, frame_data)
+        ind, text, nodes, connections = frame_data['ind'], frame_data['text'], frame_data['nodes'], frame_data['connections']
         # Use duration from frame_data if provided, otherwise default to 5 seconds
+
+
+
         duration = frame_data.get('duration', 5)
         # Get visible nodes if specified
         visible_nodes = frame_data.get('visible_nodes', None)
-        print("i", i, nodes, connections, duration, "visible:", visible_nodes)
+        # print("i", i, nodes, connections, duration, "visible:", visible_nodes)
 
         # First frame doesn't preserve (nothing to preserve from)
         # Subsequent frames preserve if preserve_continuity is enabled
         preserve_flag = preserve_continuity and i > 0
         clip = generate_frame(nodes, connections, duration, preserve_last=preserve_flag, 
                              frame_text=text, visible_nodes=visible_nodes)
-        clips.append(clip)
-    
+        clip_groups[(ind, text)].append(clip)
+
+    clips = []
+    print("lenght fo frames", len(clip_groups))
+    for clips_group_key in clip_groups:
+        clips_group = clip_groups[clips_group_key]
+        id = clips_group_key[0]
+        text = clips_group_key[1]
+        frame_clip = concatenate_videoclips(clips_group, method="compose")
+
+        audio_clip = get_audio(text)
+        # how to set frame clip lenght to max frame_clip_length and audio_clip length
+
+        video_duration = frame_clip.duration
+        audio_duration = audio_clip.duration
+
+        if audio_duration > video_duration:
+            # extend video by freezing the last frame
+            last_frame = frame_clip.get_frame(video_duration - 0.01)
+
+            freeze_clip = ImageClip(last_frame).with_duration(audio_duration - video_duration)
+
+            # concatenate original + freeze
+            frame_clip = concatenate_videoclips([frame_clip, freeze_clip], method="compose")
+
+        frame_clip = frame_clip.with_audio(audio_clip)
+
+        clips.append(frame_clip)
+
+    print("lenght fo frames", len(clips))
+
+
     # Concatenate all clips
+    background_music = generate_background_music("fast beat music, something good for study, lofi")
     final_clip = concatenate_videoclips(clips, method="compose")
+    # final_clip = final_clip.with_audio(background_music)
+
     return final_clip
 
 
@@ -396,8 +478,9 @@ def generate_video_from_story(story_frames, duration_per_step=1.0, preserve_cont
     :return: moviepy video clip
     """
     all_frames = []
-    
+    ind = 0
     for story_frame in story_frames:
+
         nodes = [tuple(node) for node in story_frame['nodes']]  # Convert to tuples
         connections = story_frame['connections']
         text = story_frame.get('text', None)
@@ -406,12 +489,18 @@ def generate_video_from_story(story_frames, duration_per_step=1.0, preserve_cont
         animated_sequence = generate_animated_frame_sequence(
             nodes, connections, text, duration_per_step
         )
-        all_frames.extend(animated_sequence)
+        for el in animated_sequence:
+            all_frames.append((ind, el))
+        # all_frames.extend(animated_sequence)
+        ind += 1
     
     # Convert all_frames to the dict format expected by generate_frames
     formatted_frames = []
-    for nodes, connections, duration, frame_text, visible_nodes in all_frames:
+    for frame in all_frames:
+        ind = frame[0]
+        nodes, connections, duration, frame_text, visible_nodes = frame[1]
         formatted_frames.append({
+            'ind': ind,
             'text': frame_text,
             'nodes': nodes,
             'connections': connections,
@@ -437,11 +526,11 @@ def engage_workers(job):
     :return:
     """
     frames = generate_script({"prompt": "Explain how the supply chain works."})
-    print("all frames", frames)
+    print("all frames", len(frames), frames)
     generated_clip = generate_video_from_story(frames)
     print("cliup is generated")
 
-    generated_clip.write_videofile("testvideo.mp4", fps=30, audio=False)
+    generated_clip.write_videofile("testvideo.mp4", fps=20, audio_codec='aac')
     print("file saved")
 
     pass

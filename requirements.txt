@@ -1,13 +1,10 @@
-<<<<<<< HEAD
 openai
-python-dotenv
+elevenlabs
 networkx
 matplotlib
 moviepy
-=======
 Flask==3.0.2
 Flask-Cors==4.0.0
 pymongo==4.6.1
 python-dotenv==1.0.1
 dnspython==2.6.1
->>>>>>> df00abd71ad4c9f8cd8f5a05a9783d327947adfd
