@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from moviepy import ImageClip, concatenate_videoclips
 import os
 import tempfile
+import textwrap
 
 from dotenv import load_dotenv
 from elevenlabs.client import ElevenLabs
@@ -156,6 +157,30 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     :return: moviepy.ImageClip object
     """
     global _last_frame_state
+    
+    # Handle case with no nodes - display only text
+    if not nodes or len(nodes) == 0:
+        fig, ax = plt.subplots(figsize=(14, 10))
+        ax.axis('off')
+        
+        if frame_text:
+            # Add text at center with word wrapping at 60 characters for better readability
+            wrapped_text = textwrap.fill(frame_text, width=60)
+            fig.text(0.5, 0.5, wrapped_text, 
+                    ha='center', va='center', 
+                    fontsize=24, 
+                    color='black')
+        
+        # Save the figure to a temporary file
+        temp_dir = tempfile.gettempdir()
+        temp_image_path = os.path.join(temp_dir, f'text_frame_{int(time.time() * 1000)}.png')
+        plt.savefig(temp_image_path, dpi=150, facecolor='white', bbox_inches=None)
+        plt.close(fig)
+        
+        # Create video clip from the image
+        clip = ImageClip(temp_image_path, duration=duration)
+        return clip
+    
     # print("trying to generate one frame")
     # Create a directed graph for current nodes
     G = nx.DiGraph()
@@ -185,15 +210,14 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     
     # Add frame text at the top if provided with padding
     if frame_text:
-        # Add text with word wrapping at 80 characters
-        wrapped_text = '\n'.join([frame_text[i:i+80] for i in range(0, len(frame_text), 80)])
-        fig.text(0.5, 0.96, wrapped_text, 
+        # Add text with word wrapping at 60 characters for consistency with text-only frames
+        wrapped_text = textwrap.fill(frame_text, width=60)
+        fig.text(0.5, 0.88, wrapped_text, 
                 ha='center', va='top', 
-                fontsize=13, fontweight='bold',
-                color='darkblue',
-                bbox=dict(boxstyle='round,pad=0.8', facecolor='lightyellow', alpha=0.8, edgecolor='darkblue', linewidth=2))
-        # Adjust subplot to leave space for text
-        fig.subplots_adjust(top=0.88, bottom=0.05, left=0.05, right=0.95)
+                fontsize=24, 
+                color='black')
+        # Adjust subplot to leave more space for larger text
+        fig.subplots_adjust(top=0.8, bottom=0.05, left=0.05, right=0.95)
     else:
         # More space for graph when no text
         fig.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95)
@@ -291,11 +315,12 @@ def generate_frame(nodes, connections, duration, preserve_last=False, frame_text
     # Draw edges
     nx.draw_networkx_edges(
         G, pos,
-        edge_color='gray',
+        edge_color='black',
         arrows=True,
-        arrowsize=20,
-        arrowstyle='->',
-        width=2,
+        arrowsize=100,
+        arrowstyle='-|>',
+        width=3,
+        connectionstyle='arc3,rad=0.1',
         ax=ax
     )
     
@@ -428,9 +453,14 @@ def generate_animated_frame_sequence(nodes, connections, frame_text=None, durati
     if not connections:
         # No connections, show nodes appearing one by one
         frame_sequence = []
-        for i in range(len(nodes)):
-            visible_nodes = set(range(i + 1))
-            frame_sequence.append((nodes, [], duration_per_step, frame_text, visible_nodes))
+        if len(nodes) == 0:
+            # Text-only frame - create a single frame with no visible nodes
+            frame_sequence.append((nodes, [], duration_per_step, frame_text, set()))
+        else:
+            # Show nodes appearing one by one
+            for i in range(len(nodes)):
+                visible_nodes = set(range(i + 1))
+                frame_sequence.append((nodes, [], duration_per_step, frame_text, visible_nodes))
         return frame_sequence
     
     frame_sequence = []
@@ -540,12 +570,12 @@ def generate_audio(text):
     pass
 
 
-# def main():
-#     while True:
-#         jobs = get_jobs()
-#         for job in jobs:
-#             engage_workers(job)
-#
-#         time.sleep(FETCH_INTERVAL_SECONDS)
+def main():
+    while True:
+        jobs = get_jobs()
+        for job in jobs:
+            engage_workers(job)
+
+        time.sleep(FETCH_INTERVAL_SECONDS)
 
 engage_workers({})
