@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Create Job</title>
+
+  <!-- Tailwind (CDN for dev) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+  <div class="w-full max-w-3xl p-6 md:p-8 bg-slate-900/70 rounded-2xl shadow-lg border border-slate-700">
+    <h1 class="text-2xl md:text-3xl font-semibold mb-2 text-sky-400">
+      Educator Agent
+    </h1>
+    <p class="text-sm text-slate-300 mb-6">
+      Write base description once, and keep on generating video automatically
+    </p>
+
+    <form id="job-form" class="space-y-4 bg-slate-900/80 border border-slate-700 rounded-xl p-4">
+      <!-- Text input -->
+      <div>
+        <label class="block text-sm font-medium text-slate-200 mb-1">
+          Text Prompt
+        </label>
+        <textarea
+          id="text-input"
+          name="text"
+          rows="6"
+          class="w-full rounded-lg border border-slate-700 bg-slate-950/70 text-slate-100 text-sm px-3 py-2
+                 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+          placeholder="Paste or type any length of text here. Newlines, spaces, etc. are all allowed."
+          required
+        ></textarea>
+      </div>
+
+      <!-- Submit button + status -->
+      <div class="flex items-center gap-3">
+        <button
+          type="submit"
+          id="submit-btn"
+          class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium
+                 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 disabled:cursor-not-allowed
+                 transition-colors"
+        >
+          <span id="submit-btn-text">Submit</span>
+          <span id="submit-btn-loading" class="hidden items-center gap-2">
+            <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 00-8 8h4z">
+              </path>
+            </svg>
+            Submitting...
+          </span>
+        </button>
+
+        <p class="text-xs text-slate-400" id="form-status"></p>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Change this to your backend URL if needed
+    // e.g. const API_BASE = 'http://localhost:8000';
+    const API_BASE = 'http://localhost:8000';
+
+    const form = document.getElementById('job-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitBtnText = document.getElementById('submit-btn-text');
+    const submitBtnLoading = document.getElementById('submit-btn-loading');
+    const statusEl = document.getElementById('form-status');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusEl.textContent = '';
+      setLoading(true);
+
+      try {
+        const formData = new FormData(form);
+        // formData will contain:
+        // - "text" (textarea content)
+        // - "document" (file) if chosen
+
+        const res = await fetch(API_BASE + '/api/agent_jobs', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const data = await res.json(); // expected: { job_id: "<id>" }
+        const jobId = data.job_id;
+        if (!jobId) {
+          throw new Error('No job_id in response');
+        }
+
+        // Redirect to status page with job_id as query param
+        // e.g. status.html?job_id=abc123
+        window.location.href = 'thanks.html';
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Error submitting job.';
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      if (isLoading) {
+        submitBtnText.classList.add('hidden');
+        submitBtnLoading.classList.remove('hidden');
+        submitBtnLoading.classList.add('inline-flex');
+      } else {
+        submitBtnText.classList.remove('hidden');
+        submitBtnLoading.classList.add('hidden');
+        submitBtnLoading.classList.remove('inline-flex');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -14,7 +14,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app = Flask(__name__)
 CORS(app)  #frontend (localhost:5500) will call the API
 
-@app.route("/api/jobs", methods=["POST"])
+@app.route("/api/agent_jobs", methods=["POST"])
 def create_job_route():
     """
     Input:
@@ -32,15 +32,16 @@ def create_job_route():
     file_path = None
     file_name = None
 
-    if file and file.filename:
-        file_name = file.filename
-        filename = file.filename
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
+    # if file and file.filename:
+    #     file_name = file.filename
+    #     filename = file.filename
+    #     file_path = os.path.join(UPLOAD_FOLDER, filename)
+    #     file.save(file_path)
 
     job_id = create_job(prompt_text=prompt_text,
-                        file_path=file_path,
-                        file_name=file_name)
+                        file_path=None,
+                        file_name=None,
+                        job_type="AGENT")
 
     # TODO: enqueue background worker to process this job,
     # generate video, and later call mark_job_done(...)

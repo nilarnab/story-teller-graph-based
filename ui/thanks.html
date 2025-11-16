@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Create Job</title>
+
+  <!-- Tailwind (CDN for dev) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+  <div class="w-full max-w-3xl p-6 md:p-8 bg-slate-900/70 rounded-2xl shadow-lg border border-slate-700">
+    <h1 class="text-2xl md:text-3xl font-semibold mb-2 text-sky-400">
+      Thanks, let the agent take over now
+    </h1>
+
+  </div>
+
+  <script>
+    // Change this to your backend URL if needed
+    // e.g. const API_BASE = 'http://localhost:8000';
+    const API_BASE = 'http://localhost:8000';
+
+    const form = document.getElementById('job-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitBtnText = document.getElementById('submit-btn-text');
+    const submitBtnLoading = document.getElementById('submit-btn-loading');
+    const statusEl = document.getElementById('form-status');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusEl.textContent = '';
+      setLoading(true);
+
+      try {
+        const formData = new FormData(form);
+        // formData will contain:
+        // - "text" (textarea content)
+        // - "document" (file) if chosen
+
+        const res = await fetch(API_BASE + '/api/agent_jobs', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const data = await res.json(); // expected: { job_id: "<id>" }
+        const jobId = data.job_id;
+        if (!jobId) {
+          throw new Error('No job_id in response');
+        }
+
+        // Redirect to status page with job_id as query param
+        // e.g. status.html?job_id=abc123
+        window.location.href = 'status.html?job_id=' + encodeURIComponent(jobId);
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Error submitting job.';
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      if (isLoading) {
+        submitBtnText.classList.add('hidden');
+        submitBtnLoading.classList.remove('hidden');
+        submitBtnLoading.classList.add('inline-flex');
+      } else {
+        submitBtnText.classList.remove('hidden');
+        submitBtnLoading.classList.add('hidden');
+        submitBtnLoading.classList.remove('inline-flex');
+      }
+    }
+  </script>
+</body>
+</html>
