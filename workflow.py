@@ -7,7 +7,8 @@ from backend.db import get_next_pending_job, update_job_result, serialize_job
 from main import main
 
 from backend.generate_subheading import generate_prompt_subheading
-from video_uploader import upload_video, YOUTUBE_INSTANCE
+from video_uploader import upload_video
+from backend.app import YOUTUBE_INSTANCE
 
 
 def generate_video_from_job(prompt_text: str, file_path: str | None) -> Tuple[str, str, List[Dict]]:
@@ -80,12 +81,13 @@ def process_one_agent_job():
 
         ## upload sequence
         print("upalod to youtube", video_url)
-        video_id = upload_video(youtube=YOUTUBE_INSTANCE,
-                                video_file=video_file,
-                                title=title,
-                                description=description,
-                                tags=tags,
-                                privacy_status='public')
+        if YOUTUBE_INSTANCE is not None:
+            video_id = upload_video(youtube=YOUTUBE_INSTANCE,
+                                    video_file=video_file,
+                                    title=title,
+                                    description=description,
+                                    tags=tags,
+                                    privacy_status='public')
 
         print("Upload successfull", video_id)
 
