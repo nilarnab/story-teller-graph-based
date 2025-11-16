@@ -4,6 +4,14 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from googleapiclient.errors import HttpError
+
+
 from db import create_job, get_job, mark_job_done, serialize_job
 
 load_dotenv()
@@ -13,6 +21,49 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 CORS(app)  #frontend (localhost:5500) will call the API
+
+YOUTUBE_INSTANCE = None
+
+SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
+
+def authenticate():
+    global YOUTUBE_INSTANCE
+    """Authenticate and return YouTube API service"""
+    creds = None
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    token_path = os.path.join(script_dir, '../token.json')
+    secrets_path = os.path.join(script_dir, '../client_secrets.json')
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                secrets_path, SCOPES)
+            # Use a fixed port instead of port=0
+            creds = flow.run_local_server(port=8080)
+
+    # Token file stores the user's access and refresh tokens
+    if os.path.exists(token_path):
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+    # If no valid credentials, let user log in
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                secrets_path, SCOPES)  # Use absolute path
+            creds = flow.run_local_server(port=0)
+
+        # Save credentials for next run
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+
+    youtube_instance = build('youtube', 'v3', credentials=creds)
+    YOUTUBE_INSTANCE = youtube_instance
+
+    return youtube_instance
 
 @app.route("/api/agent_jobs", methods=["POST"])
 def create_job_route():
@@ -28,6 +79,8 @@ def create_job_route():
     if not prompt_text:
         return jsonify({"error": "Missing 'text' field"}), 400
 
+
+
     file = request.files.get("document")
     file_path = None
     file_name = None
@@ -37,7 +90,7 @@ def create_job_route():
     #     filename = file.filename
     #     file_path = os.path.join(UPLOAD_FOLDER, filename)
     #     file.save(file_path)
-
+    authenticate()
     job_id = create_job(prompt_text=prompt_text,
                         file_path=None,
                         file_name=None,

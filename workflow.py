@@ -7,6 +7,8 @@ from backend.db import get_next_pending_job, update_job_result, serialize_job
 from main import main
 
 from backend.generate_subheading import generate_prompt_subheading
+from video_uploader import upload_video, YOUTUBE_INSTANCE
+
 
 def generate_video_from_job(prompt_text: str, file_path: str | None) -> Tuple[str, str, List[Dict]]:
     """
@@ -71,8 +73,22 @@ def process_one_agent_job():
         print("got new prompt text", prompt_text)
         description, video_url, subheadings = main(prompt_text, None)
 
+        video_file = video_url  # Change to your video file path
+        title = prompt_text
+        description = 'This video was uploaded using the YouTube API'
+        tags = ['python', 'youtube api', 'automation']
+
         ## upload sequence
         print("upalod to youtube", video_url)
+        video_id = upload_video(youtube=YOUTUBE_INSTANCE,
+                                video_file=video_file,
+                                title=title,
+                                description=description,
+                                tags=tags,
+                                privacy_status='public')
+
+        print("Upload successfull", video_id)
+
 
 
 def run_worker_loop(poll_interval: int = 5):

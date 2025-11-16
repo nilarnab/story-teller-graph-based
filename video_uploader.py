@@ -10,7 +10,11 @@ from googleapiclient.errors import HttpError
 # Scopes required for uploading videos
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
 
+
+YOUTUBE_INSTANCE = None
+
 def authenticate():
+    global YOUTUBE_INSTANCE
     """Authenticate and return YouTube API service"""
     creds= None
     # Get the directory where this script is located
@@ -45,7 +49,10 @@ def authenticate():
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
     
-    return build('youtube', 'v3', credentials=creds)
+    youtube_instance = build('youtube', 'v3', credentials=creds)
+    YOUTUBE_INSTANCE = youtube_instance
+
+    return youtube_instance
 
 def upload_video(youtube, video_file, title, description, category_id='22', 
                  privacy_status='private', tags=None):

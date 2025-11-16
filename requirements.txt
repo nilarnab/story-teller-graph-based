@@ -9,4 +9,5 @@ pymongo==4.6.1
 python-dotenv==1.0.1
 dnspython==2.6.1
 sentence-transformers
-
+google-api-python-client
+google-auth-oauthlib
