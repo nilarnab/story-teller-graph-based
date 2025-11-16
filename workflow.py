@@ -7,9 +7,10 @@ from backend.db import get_next_pending_job, update_job_result, serialize_job
 from main import main
 
 from backend.generate_subheading import generate_prompt_subheading
-from video_uploader import upload_video
-from backend.app import YOUTUBE_INSTANCE
+from video_uploader import upload_video, YOUTUBE_INSTANCE
 
+# from backend.app import YOUTUBE_INSTANCE
+YOUTUBE_INSTANCE = None
 
 def generate_video_from_job(prompt_text: str, file_path: str | None) -> Tuple[str, str, List[Dict]]:
     """

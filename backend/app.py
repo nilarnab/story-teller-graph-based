@@ -101,6 +101,41 @@ def create_job_route():
     return jsonify({"job_id": job_id}), 200
 
 
+@app.route("/api/jobs", methods=["POST"])
+def create_job_route_new():
+    """
+    Input:
+      - text: prompt text (required)
+      - document: file (optional)
+
+    Returns:
+      { "job_id": "<id>" }
+    """
+    prompt_text = request.form.get("text")
+    if not prompt_text:
+        return jsonify({"error": "Missing 'text' field"}), 400
+
+
+
+    file = request.files.get("document")
+    file_path = None
+    file_name = None
+
+    # if file and file.filename:
+    #     file_name = file.filename
+    #     filename = file.filename
+    #     file_path = os.path.join(UPLOAD_FOLDER, filename)
+    #     file.save(file_path)
+    # authenticate()
+    job_id = create_job(prompt_text=prompt_text,
+                        file_path=None,
+                        file_name=None,)
+
+    # TODO: enqueue background worker to process this job,
+    # generate video, and later call mark_job_done(...)
+    return jsonify({"job_id": job_id}), 200
+
+
 @app.route("/api/jobs", methods=["GET"])
 def get_job_status_route():
     """
